@@ -1,4 +1,4 @@
-# AI Apps
+# AI System
 
 This is a docker compose file for a local AI development environment. It includes ollama, qdrant, and openwebui.
 
@@ -19,6 +19,10 @@ services:
   ollama:
     image: ollama/ollama
     container_name: ollama
+    environment:
+      OLLAMA_KEEP_ALIVE: 1m
+      OLLAMA_NUM_PARALLEL: 1
+      OLLAMA_MAX_LOADED_MODELS: 1
     ports:
       - "11434:11434"
     volumes:
@@ -41,18 +45,31 @@ services:
       - qdrant:/qdrant/storage
     restart: unless-stopped
 
+  searxng:
+    image: searxng/searxng
+    container_name: searxng
+    ports:
+      - "8081:8080"
+    restart: unless-stopped
+    volumes:
+      - ./searxng/settings.yml:/etc/searxng/settings.yml:Z
+
   openwebui:
     image: ghcr.io/open-webui/open-webui:main
-    container_name: open-webui
+    container_name: openwebui
     ports:
       - "3100:8080"
     environment:
       - OLLAMA_BASE_URL=http://ollama:11434
-    volumes:
-      - openwebui:/app/backend/data
+      - ENABLE_RAG_WEB_SEARCH=true
+      - RAG_WEB_SEARCH_ENGINE=searxng
+      - SEARXNG_QUERY_URL=http://searxng:8080/search?q=<query>
     depends_on:
       - ollama
+      - searxng
     restart: unless-stopped
+    volumes:
+      - openwebui:/app/backend/data
 
 volumes:
   ollama:
