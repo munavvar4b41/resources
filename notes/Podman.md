@@ -1,105 +1,63 @@
-# Podman SELinux: Difference Between `:Z` and `:z`
+# Podman SELinux labels
 
-When using Podman (or Docker on SELinux-enabled systems such as Fedora, RHEL, Rocky Linux, AlmaLinux, etc.), there is an important difference between `:Z` and `:z` when mounting host directories into containers.
+On Podman, and on Docker when SELinux is enforcing (Fedora, RHEL, Rocky Linux, AlmaLinux), a bind mount needs a label suffix. `:Z` and `:z` tell the engine how to label the host path.
 
-## Quick Comparison
+## Comparison
 
-| Option | Meaning               | Use Case                                 |
-| ------ | --------------------- | ---------------------------------------- |
-| `:Z`   | Private SELinux label | One container exclusively uses the mount |
-| `:z`   | Shared SELinux label  | Multiple containers share the mount      |
+| Option | Label | Use it when |
+| ------ | ----- | ----------- |
+| `:Z` | Private | One container mounts the path |
+| `:z` | Shared | Several containers mount the same path |
 
----
-
-## `:Z` (Capital Z)
-
-When you mount a volume using:
+## `:Z`
 
 ```yaml
 volumes:
-  - ./src:/var/www/html:Z
+  - ./wordpress:/var/www/html:Z
 ```
 
-Podman relabels the directory with a **private SELinux context** intended for a single container.
+The path is labeled for that one container. The HTML site root, the WordPress directory, `docker/nginx.conf`, `docker/storage`, and `searxng/settings.yml` each use `:Z` for this reason.
 
-### Example
+A second container that mounts the same path can be denied by SELinux:
 
 ```text
-src/
-└── Container A
+Container A → works
+Container B → permission denied
 ```
 
-If another container tries to mount the same directory, SELinux may deny access.
-
-### Typical Symptoms
-
-```text
-Container A → Works
-Container B → Permission denied
-```
-
-This can happen because the directory label is assigned specifically for the first container.
-
-### When to Use `:Z`
-
-Use `:Z` when a directory is mounted into only one container.
-
-Example:
-
-```yaml
-backup:
-  volumes:
-    - ./backup:/backup:Z
-```
-
----
-
-## `:z` (Small z)
-
-When you mount a volume using:
+## `:z`
 
 ```yaml
 volumes:
-  - ./src:/var/www/html:z
+  - ./:/var/www/html:z
 ```
 
-Podman applies a **shared SELinux label** that allows multiple containers to access the same directory.
-
-### Example
+The path is labeled so every container may use it, subject to normal file permissions. The Laravel project directory uses `:z` because app, Nginx, Vite, and the queue all mount it.
 
 ```text
-src/
-├── nginx
+project/
 ├── app
-├── queue
-├── reverb
-└── node
+├── nginx
+├── vite
+└── queue
 ```
-
-All containers can read and write according to normal filesystem permissions.
-
-### When to Use `:z`
-
-Use `:z` whenever multiple containers need access to the same directory.
-
-Example:
 
 ```yaml
 app:
   volumes:
-    - ./src:/var/www/html:z
+    - ./:/var/www/html:z
 
 nginx:
   volumes:
-    - ./src:/var/www/html:z
+    - ./:/var/www/html:z
+
+vite:
+  volumes:
+    - ./:/var/www/html:z
 
 queue:
   volumes:
-    - ./src:/var/www/html:z
-
-reverb:
-  volumes:
-    - ./src:/var/www/html:z
+    - ./:/var/www/html:z
 ```
 
----
+A file inside that tree which only one container mounts, such as `docker/nginx.conf`, still uses `:Z`.
