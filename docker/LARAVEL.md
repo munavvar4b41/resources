@@ -26,11 +26,11 @@ docker compose exec app php artisan migrate
 
 - Application: http://localhost:8000
 - Vite: http://localhost:5173
-- phpMyAdmin: http://localhost:8080 (user `root`, password `root`)
+- phpMyAdmin: http://localhost:8081 (user `root`, password `root`)
 
 MariaDB is only on the compose network, at host `mariadb` and port `3306`.
 
-The project directory is mounted with `:z` because app, Nginx, Vite, and the queue share it. A mount used by one container, such as `docker/nginx.conf` and `docker/storage`, uses `:Z`.
+The project directory is mounted with `:z` because app, Nginx, Vite, and the queue share it. Reverb uses that same mount when you add it. A mount used by one container, such as `docker/nginx.conf` and `docker/storage`, uses `:Z`.
 
 ## Environment
 
@@ -153,7 +153,7 @@ services:
     container_name: "{project}-phpmyadmin"
     restart: unless-stopped
     ports:
-      - "8080:80"
+      - "8081:80"
     environment:
       PMA_HOST: mariadb
       PMA_PORT: 3306
@@ -166,6 +166,54 @@ volumes:
 ```
 
 `queue:listen` reloads application code while the container keeps running. The PHP services share one image, so a later build uses the Docker cache.
+
+## Reverb
+
+Add this service when the application broadcasts with Laravel Reverb. The process listens on port 8080, and that port is published on the host.
+
+```yaml
+  reverb:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    image: "{project}-php"
+    container_name: "{project}-reverb"
+    restart: unless-stopped
+    working_dir: /var/www/html
+    command: php artisan reverb:start --host=0.0.0.0 --port=8080
+    volumes:
+      - ./:/var/www/html:z
+    ports:
+      - "8080:8080"
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      app:
+        condition: service_started
+```
+
+Install Reverb from the app container:
+
+```bash
+docker compose exec app php artisan install:broadcasting --reverb
+```
+
+That command writes `REVERB_APP_ID`, `REVERB_APP_KEY`, and `REVERB_APP_SECRET`, and it sets `REVERB_HOST="localhost"` with `REVERB_PORT=8080`. Set `REVERB_HOST` to `reverb` so the application and the queue publish to that service. Leave `VITE_REVERB_HOST` as `localhost` so the browser uses the published port.
+
+```dotenv
+BROADCAST_CONNECTION=reverb
+
+REVERB_HOST=reverb
+REVERB_PORT=8080
+REVERB_SCHEME=http
+
+VITE_REVERB_APP_KEY="${REVERB_APP_KEY}"
+VITE_REVERB_HOST=localhost
+VITE_REVERB_PORT="${REVERB_PORT}"
+VITE_REVERB_SCHEME="${REVERB_SCHEME}"
+```
+
+Restart the Vite container after changing the `VITE_REVERB_*` values. The browser connects to ws://localhost:8080.
 
 ## docker/nginx.conf
 
