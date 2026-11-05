@@ -80,11 +80,6 @@ services:
       context: .
       dockerfile: docker/Dockerfile
     image: "{project}_php"
-    command: >
-      sh -c "
-      composer install &&
-      npm install 
-      "
     container_name: "{project}_app"
     restart: unless-stopped
     working_dir: /var/www/html
@@ -294,13 +289,6 @@ RUN curl -fsSL https://deb.nodesource.com/setup_26.x | bash - \
 COPY --from=docker.io/library/composer:latest /usr/bin/composer /usr/bin/composer
 
 WORKDIR /var/www/html
-
-RUN mkdir -p storage/framework/cache \
-    storage/framework/sessions \
-    storage/framework/views \
-    storage/logs \
-    bootstrap/cache \
-    && chown -R www-data:www-data storage bootstrap/cache
 
 CMD ["php-fpm"]
 ```
