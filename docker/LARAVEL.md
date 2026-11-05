@@ -79,8 +79,13 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile
-    image: "{project}-php"
-    container_name: "{project}-app"
+    image: "{project}_php"
+    command: >
+      sh -c "
+      composer install &&
+      npm install 
+      "
+    container_name: "{project}_app"
     restart: unless-stopped
     working_dir: /var/www/html
     volumes:
@@ -91,7 +96,7 @@ services:
 
   nginx:
     image: docker.io/library/nginx:latest
-    container_name: "{project}-nginx"
+    container_name: "{project}_nginx"
     restart: unless-stopped
     ports:
       - "8000:80"
@@ -103,7 +108,7 @@ services:
 
   mariadb:
     image: docker.io/library/mariadb:latest
-    container_name: "{project}-mariadb"
+    container_name: "{project}_mariadb"
     restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: root
@@ -121,8 +126,8 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile
-    image: "{project}-php"
-    container_name: "{project}-vite"
+    image: "{project}_php"
+    container_name: "{project}_vite"
     restart: unless-stopped
     working_dir: /var/www/html
     command: npm run dev -- --host 0.0.0.0 --port 5173
@@ -135,8 +140,8 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile
-    image: "{project}-php"
-    container_name: "{project}-queue"
+    image: "{project}_php"
+    container_name: "{project}_queue"
     restart: unless-stopped
     working_dir: /var/www/html
     command: php artisan queue:listen --tries=1
@@ -150,7 +155,7 @@ services:
 
   phpmyadmin:
     image: docker.io/library/phpmyadmin:latest
-    container_name: "{project}-phpmyadmin"
+    container_name: "{project}_phpmyadmin"
     restart: unless-stopped
     ports:
       - "8081:80"
@@ -176,8 +181,8 @@ Add this service when the application broadcasts with Laravel Reverb. The proces
     build:
       context: .
       dockerfile: docker/Dockerfile
-    image: "{project}-php"
-    container_name: "{project}-reverb"
+    image: "{project}_php"
+    container_name: "{project}_reverb"
     restart: unless-stopped
     working_dir: /var/www/html
     command: php artisan reverb:start --host=0.0.0.0 --port=8080
@@ -223,7 +228,6 @@ server {
     root /var/www/html/public;
     index index.php;
     server_name localhost;
-    client_max_body_size 64M;
 
     location / {
         try_files $uri $uri/ /index.php?$query_string;
@@ -249,6 +253,7 @@ RUN apt-get update && apt-get install -y \
     unzip \
     zip \
     curl \
+    ca-certificates \
     libzip-dev \
     libpng-dev \
     libjpeg62-turbo-dev \
@@ -281,13 +286,21 @@ RUN docker-php-ext-install \
 RUN pecl install redis \
     && docker-php-ext-enable redis
 
-RUN curl -fsSL https://deb.nodesource.com/setup_24.x | bash - \
+RUN curl -fsSL https://deb.nodesource.com/setup_26.x | bash - \
+    && apt-get update \
     && apt-get install -y nodejs \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=docker.io/library/composer:latest /usr/bin/composer /usr/bin/composer
 
 WORKDIR /var/www/html
+
+RUN mkdir -p storage/framework/cache \
+    storage/framework/sessions \
+    storage/framework/views \
+    storage/logs \
+    bootstrap/cache \
+    && chown -R www-data:www-data storage bootstrap/cache
 
 CMD ["php-fpm"]
 ```
