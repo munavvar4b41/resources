@@ -29,6 +29,7 @@ Open the backup under the **Backup** tab. Use **Files to Back Up** and **Exclude
 | `*/storage/debugbar` | Laravel Debugbar cache under any project |
 | `*/storage/framework` | Laravel framework cache, sessions, views |
 | `*/storage/inertia-devtools` | Inertia DevTools storage |
+| `*/public/storage` | Laravel storage |
 
 `*` matches across `/`. Use **Edit Pattern** on an existing row to change it later. **Regular Expression** is a different type; do not use it for these three.
 
@@ -47,6 +48,9 @@ Open the backup under the **Backup** tab. Use **Files to Back Up** and **Exclude
   },
   {
     "Fnmatch": "*/storage/inertia-devtools"
+  },
+  {
+    "Fnmatch": "*/public/storage"
   },
   {
     "PathPrefix": "/home/munavvar/.local/share/containers/storage"
